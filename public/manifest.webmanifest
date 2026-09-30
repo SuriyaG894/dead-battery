@@ -1,0 +1,10 @@
+{
+  "name": "Dead Battery",
+  "short_name": "Dead Battery",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#050608",
+  "theme_color": "#050608",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
