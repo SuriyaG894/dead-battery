@@ -40,6 +40,7 @@ button {
   border: 0;
   cursor: pointer;
   padding: 0;
+  touch-action: manipulation;
 }
 button:disabled {
   opacity: 0.4;
@@ -150,10 +151,20 @@ input[type='range'] {
 }
 
 /* ---------- Phone frame ---------- */
+/* Laid out at a fixed 390×844 and scaled to fit by PhoneFrame (see usePhoneScale). */
+.phone-fit {
+  position: relative;
+  z-index: 1;
+}
+.phone-scale {
+  width: 390px;
+  height: 844px;
+  transform-origin: top left;
+}
 .phone {
   position: relative;
-  height: min(844px, calc(100dvh - 32px));
-  aspect-ratio: 390 / 844;
+  width: 390px;
+  height: 844px;
   border-radius: 54px;
   padding: 12px;
   background: linear-gradient(145deg, #2a2c31, #0c0d10);
@@ -203,10 +214,14 @@ input[type='range'] {
   z-index: 50;
 }
 @media (max-width: 500px) {
+  .phone-fit,
+  .phone-scale {
+    width: 100vw;
+    height: 100dvh;
+  }
   .phone {
     height: 100dvh;
     width: 100vw;
-    aspect-ratio: auto;
     border-radius: 0;
     padding: 0;
     box-shadow: none;
@@ -707,7 +722,7 @@ input[type='range'] {
 .app-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 22px 8px;
 }
 .app-icon {
@@ -718,8 +733,8 @@ input[type='range'] {
 }
 .app-icon .icon {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: min(60px, 100%);
+  aspect-ratio: 1;
   border-radius: 15px;
   display: grid;
   place-items: center;
@@ -733,9 +748,12 @@ input[type='range'] {
   filter: grayscale(1) brightness(0.5);
 }
 .app-name {
+  max-width: 100%;
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .badge {
   position: absolute;
@@ -1401,10 +1419,45 @@ input[type='range'] {
   margin: 0 0 6px;
   animation: fadein 0.4s;
 }
-.transcript .corrupt {
-  color: #6b6f78;
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+.corrupt-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0c0d10;
+  border: 1px dashed #3a3d44;
+  animation: fadein 0.4s;
+}
+.corrupt-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+  flex-shrink: 0;
+  animation: corrupt 1.4s steps(2) infinite;
+}
+.corrupt-wave i {
+  width: 2px;
+  background: #5a5e68;
+  border-radius: 1px;
+}
+@keyframes corrupt {
+  50% {
+    transform: translateX(1px);
+    opacity: 0.55;
+  }
+}
+.corrupt-label {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.5px;
+  color: #8b909a;
+}
+.restored {
+  color: var(--green);
+  margin: 4px 0 0;
 }
 .transcript-text {
   font-size: 0.88rem;

@@ -15,6 +15,7 @@ const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.se
 function startAudio() {
   sfx.init();
   sfx.startDrone();
+  voice.init();
 }
 
 export function App() {

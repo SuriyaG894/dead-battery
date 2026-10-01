@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGame, updateSettings } from '../state/store';
+import { G, useGame, updateSettings } from '../state/store';
 import { markViewed, playVoicemail, setBrightness, setLowPower, tryUnlockNotes } from '../engine/director';
 import { BALANCE } from '../engine/balance';
 import { drainRate } from '../engine/battery';
@@ -104,34 +104,98 @@ export function Voice() {
   );
 }
 
+type TranscriptItem =
+  | { kind: 'line'; speaker: string; text: string; key: number }
+  | { kind: 'gap'; count: number; key: number };
+
+/** Consecutive unreadable segments collapse into one corrupted block. */
+function transcriptItems(memo: MemoDef, shown: number, flags: Record<string, unknown>): TranscriptItem[] {
+  const items: TranscriptItem[] = [];
+  memo.segments.slice(0, shown).forEach((seg, i) => {
+    if (!seg.requires || flags[seg.requires]) {
+      items.push({ kind: 'line', speaker: seg.speaker, text: seg.text, key: i });
+      return;
+    }
+    const last = items[items.length - 1];
+    if (last?.kind === 'gap') last.count++;
+    else items.push({ kind: 'gap', count: 1, key: i });
+  });
+  return items;
+}
+
+const CORRUPT_BARS = [3, 9, 4, 14, 6, 2, 11, 5, 16, 3, 7, 12, 4, 8, 2, 10];
+
 function Memo({ memo, playing, onPlay, onDone }: { memo: MemoDef; playing: boolean; onPlay: () => void; onDone: () => void }) {
   const flags = useGame((s) => s.flags);
   const played = useGame((s) => !!s.viewed[`memo:${memo.id}`]);
   const [shown, setShown] = useState(played ? memo.segments.length : 0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const run = useRef(0);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  const stopTimers = () => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+  };
+  const after = (ms: number, fn: () => void) => timers.current.push(setTimeout(fn, ms));
+
+  useEffect(
+    () => () => {
+      run.current++;
+      stopTimers();
+    },
+    [],
+  );
+
+  const stop = () => {
+    run.current++;
+    stopTimers();
+    voice.cancel();
+    onDone();
+  };
 
   const play = () => {
     onPlay();
     markViewed(`memo:${memo.id}`);
-    setShown(0);
-    timers.current.forEach(clearTimeout);
+    stopTimers();
     voice.cancel();
-    let t = 300;
-    memo.segments.forEach((seg, i) => {
-      const available = !seg.requires || flags[seg.requires];
-      timers.current.push(
-        setTimeout(() => {
-          setShown(i + 1);
-          if (available) voice.speak(seg.text, false);
-          else sfx.staticHiss(1.5);
-        }, t),
-      );
-      t += available ? 1200 + seg.text.length * 55 : 1600;
-    });
-    timers.current.push(setTimeout(onDone, t));
+    setShown(0);
+    const id = ++run.current;
+    const f = G().flags;
+    const readable = (i: number) => !memo.segments[i].requires || !!f[memo.segments[i].requires!];
+
+    // Each segment starts when the previous one has finished speaking, so lines never cut each other off.
+    const step = (i: number) => {
+      if (run.current !== id) return;
+      if (i >= memo.segments.length) {
+        onDone();
+        return;
+      }
+      if (!readable(i)) {
+        let j = i;
+        while (j < memo.segments.length && !readable(j)) j++;
+        setShown(j);
+        sfx.staticHiss(1.8);
+        after(1800, () => step(j));
+        return;
+      }
+      setShown(i + 1);
+      let advanced = false;
+      const advance = () => {
+        if (advanced || run.current !== id) return;
+        advanced = true;
+        after(350, () => step(i + 1));
+      };
+      const text = memo.segments[i].text;
+      voice.speak(text, false, advance);
+      after(2500 + text.length * 90, advance); // fallback if speech never reports back
+    };
+    after(300, () => step(0));
   };
+
+  const items = transcriptItems(memo, shown, flags);
+  const gated = memo.segments.filter((x) => x.requires);
+  const finished = shown >= memo.segments.length;
+  const damaged = gated.some((x) => !flags[x.requires!]);
 
   return (
     <div className="memo">
@@ -142,28 +206,37 @@ function Memo({ memo, playing, onPlay, onDone }: { memo: MemoDef; playing: boole
             {memo.when} · {memo.duration}
           </div>
         </div>
-        <button className="play" onClick={play} aria-label="Play">
+        <button className="play" onClick={playing ? stop : play} aria-label={playing ? 'Stop' : 'Play'}>
           {playing ? '◼' : '▶'}
         </button>
       </div>
       {shown > 0 && (
         <div className="transcript">
-          {memo.segments.slice(0, shown).map((seg, i) => {
-            const available = !seg.requires || flags[seg.requires];
-            return (
-              <p key={i} className={available ? '' : 'corrupt'}>
-                {available ? (
-                  <>
-                    <b>{seg.speaker}:</b> {seg.text}
-                  </>
-                ) : (
-                  '▒▒▒ [audio corrupted · data missing] ▒▒▒'
-                )}
+          {items.map((it) =>
+            it.kind === 'line' ? (
+              <p key={it.key}>
+                <b>{it.speaker}:</b> {it.text}
               </p>
-            );
-          })}
-          {memo.segments.some((s) => s.requires && !flags[s.requires]) && shown >= memo.segments.length && (
-            <p className="muted small">Part of this recording is corrupted. Maybe the rest was backed up somewhere…</p>
+            ) : (
+              <div key={it.key} className="corrupt-block" role="note">
+                <span className="corrupt-wave" aria-hidden>
+                  {CORRUPT_BARS.map((h, i) => (
+                    <i key={i} style={{ height: h }} />
+                  ))}
+                </span>
+                <span className="corrupt-label">
+                  AUDIO CORRUPTED · {it.count} segment{it.count > 1 ? 's' : ''} unreadable
+                </span>
+              </div>
+            ),
+          )}
+          {finished && damaged && (
+            <p className="muted small">
+              This recording was damaged when other files were deleted. Recovering her deleted files may restore it.
+            </p>
+          )}
+          {finished && gated.length > 0 && !damaged && (
+            <p className="restored small">✓ Restored from her recovered files</p>
           )}
           {memo.evidence && <PinButton id={memo.evidence} />}
         </div>

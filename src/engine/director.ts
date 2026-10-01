@@ -343,6 +343,7 @@ export function openScreen(screen: ScreenId) {
     return;
   }
   sfx.tap();
+  stopAppAudio();
   setG({ screen, openThread: screen === 'messages' ? G().openThread : null });
   markViewed(`app:${screen}`);
 }
@@ -350,7 +351,14 @@ export function openScreen(screen: ScreenId) {
 export function goHome() {
   const s = G();
   if (s.screen === 'lock') return;
+  stopAppAudio();
   setG({ screen: 'home', openThread: null });
+}
+
+/** Voicemails and memos stop when you leave their app; a call in progress keeps talking. */
+function stopAppAudio() {
+  const o = G().overlay;
+  if (!(o?.kind === 'call' && o.answered)) voice.cancel();
 }
 
 export function openThread(thread: ThreadId | null) {
@@ -466,13 +474,13 @@ export function setLowPower(on: boolean) {
 
 export function sleep() {
   setG({ screenOff: true });
-  voice.pause();
+  // Drop speech rather than pausing it: pause/resume is unreliable and can replay audio later.
+  voice.cancel();
   sfx.suspend();
 }
 
 export function wake() {
   setG({ screenOff: false });
-  voice.resume();
   sfx.resume();
 }
 
