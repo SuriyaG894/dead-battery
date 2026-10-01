@@ -1614,6 +1614,13 @@ input[type='range'] {
 .final h4 {
   margin: 0 0 6px;
 }
+.final.locked {
+  background: #121317;
+  border: 1px dashed #4a4d55;
+}
+.final.locked p {
+  margin: 4px 0;
+}
 .recipients {
   display: grid;
   grid-template-columns: 1fr 1fr;

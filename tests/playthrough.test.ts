@@ -133,4 +133,19 @@ describe('golden path playthrough (engine only)', () => {
     run(1);
     expect(G().overlay).toEqual({ kind: 'alert', alertId: 'lowBattery' });
   });
+
+  it('an explorer who never replies to Sam or opens Messages still reaches the case board', () => {
+    tryUnlockPhone('0614');
+    recoverPhoto('contract');
+    tryUnlockNotes('1107');
+    // Keeps discovering something every few seconds, so idle time never builds up.
+    for (let i = 0; i < 90 && !G().flags.finalUnlocked; i++) {
+      markViewed(`explore:${i}`);
+      run(5);
+    }
+    expect(G().chapter).toBe(3);
+    expect(G().flags.finalUnlocked).toBe(true);
+    expect(G().gameTimeMs).toBeLessThan(4 * 60_000); // case board within ~4 minutes, not never
+    expect(G().phase).toBe('playing');
+  });
 });

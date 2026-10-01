@@ -24,6 +24,11 @@ export function evaluate(c: Condition, s: CondState): boolean {
   if ('elapsedInChapterSec' in c) return s.gameTimeMs - s.chapterStartMs >= c.elapsedInChapterSec * 1000;
   if ('idleSec' in c) return s.gameTimeMs - s.lastProgressMs >= c.idleSec * 1000;
   if ('evidence' in c) return s.evidence.includes(c.evidence);
-  if ('fired' in c) return !!s.fired[c.fired];
+  if ('fired' in c) {
+    const at = s.fired[c.fired];
+    if (at === undefined) return false;
+    if (!c.agoSec) return true;
+    return s.gameTimeMs - (typeof at === 'number' ? at : 0) >= c.agoSec * 1000;
+  }
   return false;
 }

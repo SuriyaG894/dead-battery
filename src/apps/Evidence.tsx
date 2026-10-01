@@ -23,6 +23,7 @@ export function Evidence() {
   const board = useGame((s) => s.board);
   const finalUnlocked = useGame((s) => !!s.flags.finalUnlocked);
   const revealed = useGame((s) => !!s.flags.mayaRevealed);
+  const notesUnlocked = useGame((s) => !!s.flags.notesUnlocked);
   const [confirm, setConfirm] = useState<Recipient | null>(null);
   const complete = !!(board.who && board.where && board.why);
 
@@ -79,9 +80,15 @@ export function Evidence() {
             </div>
           </section>
         ) : (
-          <p className="muted small pad">
-            Pin clues from messages, photos, maps and notes with 📌. Once you know where she is, you can send her location from here.
-          </p>
+          <section className="final locked">
+            <h4>🔒 Sending her location is locked</h4>
+            <p className="small">
+              {notesUnlocked
+                ? "You know where she is. Hold on: someone wants to talk to you first. Keep the phone close."
+                : "You don't know where she is yet. Maya locked her Notes for a reason. Find the code."}
+            </p>
+            <p className="muted small">Meanwhile, pin clues with 📌 and fill in the board.</p>
+          </section>
         )}
 
         <section>

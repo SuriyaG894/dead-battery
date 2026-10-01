@@ -77,4 +77,37 @@ describe('content integrity', () => {
   it('every puzzle has 3 hint tiers', () => {
     for (const h of Object.values(HINTS)) expect(h.tiers).toHaveLength(3);
   });
+
+  it('story progress never waits on idle time (active players reset it forever)', () => {
+    const byId = new Map(TRIGGERS.map((t) => [t.id, t]));
+    const progresses = (t: (typeof TRIGGERS)[number]) =>
+      actionsOf(t.do).some(
+        (a) =>
+          a.type === 'call' ||
+          a.type === 'advanceChapter' ||
+          (a.type === 'setFlag' && ['finalUnlocked', 'mayaRevealed'].includes(a.key)),
+      );
+    const firedRefs = (c: Condition, out: string[] = []): string[] => {
+      if ('all' in c) c.all.forEach((x) => firedRefs(x, out));
+      else if ('any' in c) c.any.forEach((x) => firedRefs(x, out));
+      else if ('not' in c) firedRefs(c.not, out);
+      else if ('fired' in c) out.push(c.fired);
+      return out;
+    };
+    const usesIdle = (c: Condition): boolean =>
+      'all' in c ? c.all.some(usesIdle) : 'any' in c ? c.any.some(usesIdle) : 'not' in c ? usesIdle(c.not) : 'idleSec' in c;
+
+    // Progression triggers plus every trigger they depend on.
+    const queue = TRIGGERS.filter(progresses).map((t) => t.id);
+    const critical = new Set<string>();
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (critical.has(id)) continue;
+      critical.add(id);
+      const t = byId.get(id);
+      if (t) queue.push(...firedRefs(t.when));
+    }
+    expect(critical.size).toBeGreaterThan(3);
+    for (const id of critical) expect(usesIdle(byId.get(id)!.when), id).toBe(false);
+  });
 });

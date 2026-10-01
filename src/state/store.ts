@@ -54,7 +54,8 @@ export interface GameData {
   evidence: string[];
   board: { who?: string; where?: string; why?: string };
   hintsUsed: Partial<Record<PuzzleId, number>>;
-  fired: Record<string, true>;
+  /** Trigger id → game time (ms) it fired. Older saves stored `true`. */
+  fired: Record<string, number | true>;
   armed: Record<string, number>;
   scheduled: Scheduled[];
   overlay: Overlay | null;

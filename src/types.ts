@@ -57,7 +57,8 @@ export type Condition =
   | { elapsedInChapterSec: number }
   | { idleSec: number }
   | { evidence: string }
-  | { fired: string };
+  /** A trigger has fired — optionally at least `agoSec` seconds of game time ago. */
+  | { fired: string; agoSec?: number };
 
 export type Action =
   | { type: 'text'; thread: ThreadId; body: string; typingMs?: number; photo?: string; evidence?: string }

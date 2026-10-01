@@ -82,7 +82,7 @@ function logic() {
   for (const t of TRIGGERS) {
     const s = G();
     if (s.phase !== 'playing') return;
-    if (s.fired[t.id]) continue;
+    if (s.fired[t.id] !== undefined) continue;
     const armedAt = s.armed[t.id];
     if (armedAt === undefined) {
       if (!evaluate(t.when, s)) continue;
@@ -93,7 +93,7 @@ function logic() {
     } else if (now - armedAt < (t.delaySec ?? 0) * 1000) {
       continue;
     }
-    setG({ fired: { ...G().fired, [t.id]: true } });
+    setG({ fired: { ...G().fired, [t.id]: now } });
     runActions(t.do);
   }
 

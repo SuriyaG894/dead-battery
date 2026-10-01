@@ -82,7 +82,8 @@ const CH1: Trigger[] = [
     when: {
       all: [
         { flag: 'phoneUnlocked' },
-        { any: [{ viewed: 'app:messages' }, { idleSec: 40 }] },
+        // Never gate story progress on idle time: an active player resets it forever.
+        { any: [{ viewed: 'app:messages' }, { fired: 'c1_unlocked', agoSec: 40 }] },
       ],
     },
     delaySec: 10,
@@ -120,7 +121,9 @@ const CH1: Trigger[] = [
   },
   {
     id: 'c1_call',
-    when: { all: [{ chapter: 1 }, { fired: 'c1_sam_first' }, { any: [{ flag: 'samReplied' }, { idleSec: 45 }] }] },
+    when: {
+      all: [{ chapter: 1 }, { any: [{ flag: 'samReplied' }, { fired: 'c1_sam_first', agoSec: 60 }] }],
+    },
     delaySec: 12,
     do: [{ type: 'call', callId: 'c1' }],
   },
